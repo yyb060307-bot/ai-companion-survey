@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#ffffff">
+<title>AI 챗봇 사용 경험 설문</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="app-shell">
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">AI</span>
+      <div>
+        <p class="brand-title">AI 챗봇 사용 경험 설문</p>
+        <p class="brand-sub" id="page-context">Introduction · 설문 안내</p>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span class="test-badge">TEST MODE</span>
+      <span class="page-count" id="page-count">01 / 07</span>
+    </div>
+  </header>
+
+  <div class="progress-track" aria-hidden="true">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+
+  <main class="page-root" id="page-root" tabindex="-1"></main>
+
+  <footer class="app-footer" id="app-footer" hidden>
+    <button type="button" class="btn btn-ghost" id="prev-btn">← 이전</button>
+    <p class="footer-note" id="footer-note">테스트 모드 · 응답과 대화 내용은 저장되지 않습니다.</p>
+    <button type="button" class="btn btn-primary" id="next-btn">다음 →</button>
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<noscript>
+  <p style="padding: 24px; text-align: center;">이 설문을 진행하려면 JavaScript를 활성화해 주세요.</p>
+</noscript>
+
+<!-- 설정 → 상태 → 서비스 → UI → 페이지 모듈 → 앱 컨트롤러 순서로 로드 -->
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/services/storage.js"></script>
+<script src="js/services/llm.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/pages/intro.js"></script>
+<script src="js/pages/pre-ai.js"></script>
+<script src="js/pages/pre-psych.js"></script>
+<script src="js/pages/chat.js"></script>
+<script src="js/pages/post-psych.js"></script>
+<script src="js/pages/evaluation.js"></script>
+<script src="js/pages/ending.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
