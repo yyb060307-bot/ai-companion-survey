@@ -280,15 +280,21 @@ a {
 }
 
 .page-head {
+  max-width: 68ch;
   padding-bottom: 4px;
 }
 
 .page-head h1 {
   margin: 2px 0 6px;
   font-size: clamp(1.75rem, 3.4vw, 2.25rem);
-  font-weight: 300;
+  font-weight: 500;
   line-height: 1.22;
   letter-spacing: 0;
+  text-decoration-line: underline;
+  text-decoration-color: var(--primary-pressed);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+  text-decoration-skip-ink: none;
 }
 
 .lede {
@@ -297,6 +303,18 @@ a {
   color: var(--ink-muted);
   font-size: 1rem;
   line-height: 1.5;
+}
+
+.page-head .lede {
+  display: inline;
+  max-width: none;
+  background-image: linear-gradient(
+    to bottom,
+    transparent 50%,
+    rgba(15, 98, 254, 0.14) 50%
+  );
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 .muted {

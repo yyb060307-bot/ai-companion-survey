@@ -26,7 +26,7 @@
           '</header>' +
 
           '<section class="card question-card">' +
-            '<p class="question">AI는 본인에게 어떤 존재인가요?</p>' +
+            '<p class="question">AI는 본인에게 어떤 존재인가요? <span class="hint">예: 작업 도우미, 친구, 대화상대 등 자유 기재</span></p>' +
             '<textarea class="text-input" id="perception" rows="3" placeholder="자유롭게 적어주세요">' +
               S.ui.escape(st.perception) + '</textarea>' +
           '</section>' +
