@@ -16,11 +16,11 @@ python -m http.server 8000
 ## 페이지 흐름
 
 1. `intro` — 연구 목적, 참여 유의사항, 시작 버튼
-2. `pre-ai` — AI 인식·사용 목적, 사용 시간·기간(5점 척도), 자기노출
-3. `pre-psych` — AI 경험 전 심리 상태: 외로움·고립, 사회적 지지·관계망(5점 척도)
-4. `post-psych` — 현재 심리 상태
+2. `pre-ai` — AI에 대한 인식(자유 설명), 사용 목적, 사용 시간·기간, 자기노출
+3. `pre-psych` — AI 경험 전 심리사회 문항(4점 척도) 및 사회적 관계망
+4. `post-psych` — 현재 심리사회 문항(4점 척도)
 5. `chat` — 캐릭터 기반 채팅 UI, 최소 발화 조건, 행동 데이터 수집 구조(비노출)
-6. `evaluation` — 대화 몰입도, 친밀감, 지각된 공감, 외로움 완화, 지속 욕구, 자유 의견
+6. `evaluation` — 챗봇 이용 후기 5문항(5점 척도)
 7. `ending` — 완료 안내, 감사 메시지, 경품 추첨 링크
 
 ## 파일 구조
@@ -34,7 +34,7 @@ python -m http.server 8000
    ├─ config.js               # 캐릭터, 최소 대화 조건, LLM 설정, 추첨 URL
    ├─ state.js                # 메모리 기반 설문 상태
    ├─ app.js                  # 페이지 렌더링 및 이전/다음 흐름 제어
-   ├─ ui.js                   # Likert, 입력 바인딩, 토스트 등 공통 UI
+   ├─ ui.js                   # 척도·선택지 카드, 입력 바인딩, 토스트 등 공통 UI
    ├─ services/
    │  ├─ storage.js           # 저장 어댑터 스텁 (Supabase 연결 지점)
    │  └─ llm.js               # LLM 어댑터 스텁 (Claude 연결 지점)
@@ -73,9 +73,13 @@ API 키가 브라우저에 노출되지 않도록 반드시 서버를 경유해�
 
 ### 설문 문항·척도
 
-현재 심리 지표와 평가 문항은 UI 확인용 예시입니다.
-`js/config.js`의 `psychConstructs`, `evaluationItems`, `preAIOptions`를 교체하면
-페이지 구조를 유지한 채 실제 문항으로 바꿀 수 있습니다.
+문항과 선택지는 `js/config.js`에 모아 두었습니다.
+`psychConstructs`, `evaluationItems`, `preAIOptions`, 각 척도 라벨과 선택지를
+교체하면 페이지 구조를 유지한 채 문항을 바꿀 수 있습니다.
+
+- 심리사회 문항: 4점 척도 (`psychLabels`)
+- 챗봇 이용 후기: 5점 척도 (`likertLabels`)
+- 사용 시간·기간, 사회적 관계망, 자기노출: 선택지형 문항
 
 ## 테스트 모드 동작
 

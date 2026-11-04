@@ -654,6 +654,10 @@ textarea.text-input {
   margin-top: 10px;
 }
 
+.likert--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .likert-option {
   position: relative;
   display: flex;
@@ -739,6 +743,12 @@ textarea.text-input {
 
 .question-card .question {
   margin-bottom: 0;
+}
+
+.question-card .choice-list,
+.question-card .choice-grid,
+.question-card .text-input {
+  margin-top: 10px;
 }
 
 /* ── Notices ───────────────────────────────────────────── */

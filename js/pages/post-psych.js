@@ -7,9 +7,10 @@
 
       var cards = S.psychConstructs.map(function (construct) {
         return S.ui.questionCard({
-          question: construct.postItem,
+          question: construct.item,
           name: 'postPsych.' + construct.key,
           value: st[construct.key],
+          labels: S.config.psychLabels,
         });
       }).join('');
 
@@ -22,8 +23,6 @@
           '</header>' +
 
           '<div class="stack">' + cards + '</div>' +
-
-          S.ui.notice('현재 심리 상태 문항은 UI 확인용 예시입니다. AI 경험 전 검사와 동일한 척도로 측정하는 구조만 준비되어 있습니다.', 'info') +
         '</section>';
 
       S.psychConstructs.forEach(function (construct) {

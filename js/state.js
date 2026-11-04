@@ -25,21 +25,19 @@
 
       // 2. 사전 검사: AI 사용 경험
       preAI: {
-        purposes: [],
-        purposeOther: '',
         perception: '',
-        perceptionOther: '',
+        purposes: [],
         usageTime: null,
         usagePeriod: null,
         selfDisclosure: null,
-        disclosureNote: '',
       },
 
       // 3. 사전 검사: AI 경험 전 심리 상태
       prePsych: {
         loneliness: null,
+        isolation: null,
+        disclosure: null,
         support: null,
-        baseline: null,
         networkMeet: null,
         networkContact: null,
       },
@@ -47,8 +45,9 @@
       // 4. 사후 검사: 현재 심리 상태
       postPsych: {
         loneliness: null,
+        isolation: null,
+        disclosure: null,
         support: null,
-        baseline: null,
       },
 
       // 5. AI 챗봇 대화
@@ -77,7 +76,6 @@
         empathy: null,
         relief: null,
         continueDesire: null,
-        feedback: '',
       },
     };
   };

@@ -18,16 +18,17 @@
   ui.attr = ui.escape;
 
   /**
-   * 5점 Likert 형태의 라디오 그룹
+   * 척도형 라디오 그룹
+   * labels 개수에 맞춰 4점·5점 척도를 렌더링합니다.
    * value가 null이면 아무것도 선택되지 않습니다.
    */
   ui.likert = function (name, value, options) {
     options = options || {};
-    var min = options.min || 1;
-    var max = options.max || 5;
     var labels = options.labels || S.config.likertLabels;
+    var min = options.min || 1;
+    var max = options.max || labels.length;
     var disabled = options.disabled ? ' disabled' : '';
-    var html = '<div class="likert" role="radiogroup" aria-label="' + ui.attr(options.ariaLabel || name) + '">';
+    var html = '<div class="likert likert--' + max + '" role="radiogroup" aria-label="' + ui.attr(options.ariaLabel || name) + '">';
 
     for (var i = min; i <= max; i++) {
       var label = labels[i - min] || String(i);
@@ -39,6 +40,28 @@
         '<span class="likert-label">' + ui.escape(label) + '</span>' +
         '</label>';
     }
+
+    html += '</div>';
+    return html;
+  };
+
+  /**
+   * 선택지형 라디오 그룹
+   * options 배열의 순서대로 1부터 값을 부여합니다.
+   */
+  ui.choice = function (name, value, options) {
+    options = options || {};
+    var choices = options.options || [];
+    var html = '<div class="choice-list" role="radiogroup" aria-label="' + ui.attr(options.ariaLabel || name) + '">';
+
+    choices.forEach(function (label, index) {
+      var optionValue = index + 1;
+      var checked = Number(value) === optionValue ? ' checked' : '';
+      html += '<label class="choice">' +
+        '<input type="radio" name="' + ui.attr(name) + '" value="' + optionValue + '"' + checked + '>' +
+        '<span>' + ui.escape(label) + '</span>' +
+        '</label>';
+    });
 
     html += '</div>';
     return html;
@@ -79,14 +102,21 @@
     return el;
   };
 
-  /** 문항 하나를 담는 카드 */
+  /** 문항 하나를 담는 카드 (척도형 또는 선택지형) */
   ui.questionCard = function (options) {
+    var input = options.options
+      ? ui.choice(options.name, options.value, {
+          options: options.options,
+          ariaLabel: options.question,
+        })
+      : ui.likert(options.name, options.value, {
+          ariaLabel: options.question,
+          labels: options.labels,
+        });
+
     return '<section class="card question-card">' +
       '<p class="question">' + ui.escape(options.question) + '</p>' +
-      ui.likert(options.name, options.value, {
-        ariaLabel: options.question,
-        labels: options.labels,
-      }) +
+      input +
     '</section>';
   };
 
