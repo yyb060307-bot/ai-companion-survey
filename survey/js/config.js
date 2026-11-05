@@ -8,12 +8,13 @@
   S.config = {
     title: 'AI 챗봇 사용 경험 설문',
     subtitle: '캐릭터 기반 AI 챗봇과의 대화 경험과 심리적 지표',
-    version: '0.1.0-test',
-    testMode: true,
+    version: '1.0.0',
+    testMode: false,
 
-    // 테스트 모드에서는 3회 발화 후 대화를 종료할 수 있습니다.
-    // 실제 연구에서는 연구 설계에 맞춰 조정하세요.
+    // 최소 3회 발화 후 대화를 종료할 수 있습니다.
+    // maxUserTurns는 비용·시간 폭주를 막기 위한 안전 상한입니다.
     minUserTurns: 3,
+    maxUserTurns: 20,
 
     // 4점 척도에 "보통임"을 추가한 5점 척도
     likertLabels: ['매우 그렇지 않음', '다소 그렇지 않음', '보통임', '다소 그러함', '매우 그러함'],
@@ -25,6 +26,9 @@
     networkMeetOptions: ['0명', '1-2명', '3-4명', '5-8명', '9명 이상'],
     networkContactOptions: ['한 달에 1회 미만', '한 달에 1번', '한 달에 2-3번', '매주', '1주일에 2-3회', '거의 매일'],
 
+    // 화면 표시용 기본값입니다.
+    // 실제 값은 functions/api/persona.js에서 /api/persona로 자동 반영됩니다.
+    // 이 값은 API에 연결할 수 없을 때만 사용되는 대체값입니다.
     character: {
       id: 'haru',
       name: '하루',
@@ -35,16 +39,82 @@
 
     llm: {
       // 'mock' | 'claude'
-      provider: 'mock',
-      // 실제 연동 시 사용할 모델 예시. 서버 프록시에서 호출하세요.
-      // Haiku를 사용할 경우: 'claude-haiku-...' 형태로 교체
-      model: 'claude-sonnet-5-5',
-      maxTokens: 512,
-      temperature: 0.8,
+      // 실제 운영에서는 'claude'를 사용하고, API 키는 Cloudflare Functions에만 둡니다.
+      provider: 'claude',
+      model: 'claude-haiku-5-5',
+      endpoint: '/api/chat',
+      maxTokens: 300,
+      timeoutMs: 30000,
+      // 실제 값은 /api/persona에서 자동 반영됩니다. (API 실패 시 대체값)
+      promptVersion: 'haru-v1',
     },
 
+    // Supabase 저장소 설정
+    // anon key는 공개되어도 되는 키이지만, 반드시 RLS(행 수준 보안)를 적용하세요.
+    // supabase/schema.sql을 먼저 실행한 뒤 아래 값을 채우세요.
+    supabase: {
+      url: 'https://tqucfzolppirbxggxkyo.supabase.co',
+      anonKey: 'sb_publishable_Azr-oFkHk8lcPZoHxtL5FA_2lQRTSxy',
+      table: 'survey_responses',
+    },
+
+    // 참여자 문의·철회 연락처입니다. 실제 연구 책임자 이메일로 교체하세요.
+    contactEmail: 'yyb060307@gmail.com',
+
     // 테스트용 자리표시자입니다. 실제 추첨 설문 URL로 교체하세요.
-    raffleUrl: 'https://forms.gle/REPLACE_ME',
+    raffleUrl: 'https://forms.gle/READ_ME',
+  };
+
+  /**
+   * 서버의 페르소나 설정(functions/api/persona.js)을 화면 표시값에 반영합니다.
+   * 이름·아바타·소개·첫 인사·프롬프트 버전이 함께 바뀝니다.
+   */
+  S.applyPersona = function (persona) {
+    if (!persona || typeof persona !== 'object') return;
+
+    var current = S.config.character || {};
+    S.config.character = {
+      id: persona.id || current.id,
+      name: persona.name || current.name,
+      tagline: persona.tagline || current.tagline,
+      avatar: persona.avatar || current.avatar,
+      greeting: persona.greeting || current.greeting,
+    };
+
+    if (persona.version) S.config.llm.promptVersion = persona.version;
+  };
+
+  /**
+   * /api/persona에서 최신 페르소나를 불러옵니다.
+   * 정적 미리보기처럼 API가 없으면 조용히 기본값을 사용합니다.
+   */
+  S.loadPersona = function () {
+    if (typeof fetch !== 'function') return Promise.resolve();
+
+    var controller = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer = controller
+      ? setTimeout(function () {
+          controller.abort();
+        }, 2000)
+      : null;
+
+    return fetch('/api/persona', {
+      cache: 'no-store',
+      headers: { accept: 'application/json' },
+      signal: controller ? controller.signal : undefined,
+    })
+      .then(function (response) {
+        return response.ok ? response.json() : null;
+      })
+      .then(function (persona) {
+        S.applyPersona(persona);
+      })
+      .catch(function () {
+        // API를 사용할 수 없으면 config.js의 기본값을 그대로 사용합니다.
+      })
+      .then(function () {
+        if (timer) clearTimeout(timer);
+      });
   };
 
   /**

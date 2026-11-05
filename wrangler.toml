@@ -1,0 +1,21 @@
+name = "ai-companion-survey"
+compatibility_date = "2026-11-01"
+pages_build_output_dir = "survey"
+
+# 비밀 값은 wrangler.toml에 두지 마세요.
+#   npx wrangler pages secret put ANTHROPIC_API_KEY
+#
+# 선택: 요청 제한·일일 예산 카운터를 쓰려면 Cloudflare 대시보드에서
+# Pages 프로젝트 → Settings → Functions → KV namespace bindings 에
+# RATE_LIMIT_KV 바인딩을 추가하세요.
+
+[vars]
+CLAUDE_MODEL = "claude-haiku-5-5"
+MAX_USER_TURNS = "20"
+MAX_MESSAGE_CHARS = "500"
+MAX_TOTAL_CHARS = "6000"
+MAX_OUTPUT_TOKENS = "300"
+DAILY_BUDGET_USD = "2"
+RATE_LIMIT_PER_MINUTE = "8"
+# 쉼표로 구분한 추가 허용 오리진. same-origin은 자동 허용됩니다.
+ALLOWED_ORIGINS = ""

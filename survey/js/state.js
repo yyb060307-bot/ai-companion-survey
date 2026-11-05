@@ -9,7 +9,30 @@
     if (window.crypto && typeof window.crypto.randomUUID === 'function') {
       return window.crypto.randomUUID();
     }
-    return 'resp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+
+    // HTTPS가 아닌 환경에서도 Supabase uuid 컬럼에 맞는 v4 UUID를 만듭니다.
+    var bytes = new Uint8Array(16);
+    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+      window.crypto.getRandomValues(bytes);
+    } else {
+      for (var i = 0; i < bytes.length; i++) {
+        bytes[i] = Math.floor(Math.random() * 256);
+      }
+    }
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+    var hex = Array.prototype.map.call(bytes, function (b) {
+      return b.toString(16).padStart(2, '0');
+    }).join('');
+
+    return (
+      hex.slice(0, 8) + '-' +
+      hex.slice(8, 12) + '-' +
+      hex.slice(12, 16) + '-' +
+      hex.slice(16, 20) + '-' +
+      hex.slice(20)
+    );
   }
 
   S.createInitialState = function () {
@@ -66,6 +89,16 @@
           minUserTurns: S.config.minUserTurns,
           minTurnsMet: false,
           endedByUser: false,
+          endedReason: null,
+          llm: {
+            model: null,
+            promptVersion: null,
+            calls: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            latencyMs: 0,
+            errors: 0,
+          },
         },
       },
 

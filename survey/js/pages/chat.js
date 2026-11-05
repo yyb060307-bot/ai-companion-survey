@@ -95,6 +95,21 @@
     S.ui.scrollToBottom(els.messages);
   }
 
+  function ensureMaxTurnsNotice() {
+    var behavior = S.state.chat.behavior;
+    if (S.state.chat.ended) return;
+    if (behavior.userTurnCount < S.config.maxUserTurns) return;
+    if (behavior.maxTurnsNotified) return;
+
+    behavior.maxTurnsNotified = true;
+    S.state.chat.messages.push({
+      role: 'system',
+      content: '대화 가능한 최대 횟수에 도달했습니다. 대화를 종료해 주세요.',
+      at: Date.now(),
+    });
+    renderMessages();
+  }
+
   /**
    * 대화 조건은 상단 안내에서 설명하고, 화면에는 종료 가능 여부만 반영합니다.
    * 발화 수·진행률·행동 데이터는 참여자에게 노출하지 않습니다.
@@ -105,7 +120,9 @@
     var behavior = chat.behavior;
     var count = behavior.userTurnCount;
     var min = behavior.minUserTurns;
+    var max = S.config.maxUserTurns;
     var met = count >= min;
+    var maxed = count >= max;
     behavior.minTurnsMet = met;
 
     els.endChat.disabled = !met || waiting || chat.ended;
@@ -121,12 +138,16 @@
     if (ctxRef) {
       ctxRef.setNextEnabled(chat.ended, chat.ended ? '' : '대화를 종료하면 다음 단계로 이동할 수 있습니다.');
     }
+
+    if (maxed && !chat.ended) ensureMaxTurnsNotice();
   }
 
   function setBusy(busy) {
     if (!els) return;
     waiting = busy;
-    var disabled = busy || S.state.chat.ended;
+    var chat = S.state.chat;
+    var maxed = chat.behavior.userTurnCount >= S.config.maxUserTurns;
+    var disabled = busy || chat.ended || maxed;
     els.input.disabled = disabled;
     els.send.disabled = disabled;
     els.send.textContent = busy ? '응답 중…' : '전송';
@@ -137,12 +158,16 @@
     var chat = S.state.chat;
     var behavior = chat.behavior;
     var endedAt = behavior.endedAt || Date.now();
+    var isMock = S.config.llm.provider === 'mock';
     return {
       responseId: S.state.meta.responseId,
       characterId: S.config.character.id,
+      model: isMock ? 'mock' : ((behavior.llm && behavior.llm.model) || S.config.llm.model),
+      promptVersion: isMock ? null : ((behavior.llm && behavior.llm.promptVersion) || S.config.llm.promptVersion),
       startedAt: behavior.startedAt,
       firstUserMessageAt: behavior.firstUserMessageAt,
       endedAt: behavior.endedAt,
+      endedReason: behavior.endedReason,
       durationMs: behavior.startedAt ? endedAt - behavior.startedAt : null,
       userTurnCount: behavior.userTurnCount,
       assistantTurnCount: behavior.assistantTurnCount,
@@ -150,10 +175,19 @@
       totalUserChars: behavior.totalUserChars,
       totalAssistantChars: behavior.totalAssistantChars,
       minUserTurns: behavior.minUserTurns,
+      maxUserTurns: S.config.maxUserTurns,
       minTurnsMet: behavior.minTurnsMet,
       endedByUser: behavior.endedByUser,
+      llm: behavior.llm,
       transcript: chat.messages.map(function (m) {
-        return { role: m.role, content: m.content, at: m.at, kind: m.kind || null };
+        return {
+          role: m.role,
+          content: m.content,
+          at: m.at,
+          kind: m.kind || null,
+          model: m.model || null,
+          usage: m.usage || null,
+        };
       }),
     };
   }
@@ -167,11 +201,19 @@
       return;
     }
 
-    var now = Date.now();
     var chat = S.state.chat;
     var behavior = chat.behavior;
 
-    chat.messages.push({ role: 'user', content: text, at: now });
+    if (behavior.userTurnCount >= S.config.maxUserTurns) {
+      S.ui.toast('대화 가능한 최대 횟수에 도달했습니다. 대화를 종료해 주세요.');
+      return;
+    }
+
+    var now = Date.now();
+    var wasFirst = !behavior.firstUserMessageAt;
+    var lastUserMessage = { role: 'user', content: text, at: now };
+
+    chat.messages.push(lastUserMessage);
     behavior.userTurnCount += 1;
     behavior.totalUserChars += text.length;
     if (!behavior.firstUserMessageAt) behavior.firstUserMessageAt = now;
@@ -187,16 +229,33 @@
       messages: chat.messages,
       character: S.config.character,
       signal: abortController.signal,
-    }).then(function (reply) {
+    }).then(function (result) {
       if (!mounted || token !== requestToken || S.state.chat.ended) return;
-      chat.messages.push({ role: 'assistant', content: reply, at: Date.now(), kind: 'reply' });
+      chat.messages.push({
+        role: 'assistant',
+        content: result.text,
+        at: Date.now(),
+        kind: 'reply',
+        model: result.model || null,
+        usage: result.usage || null,
+      });
       behavior.assistantTurnCount += 1;
-      behavior.totalAssistantChars += reply.length;
+      behavior.totalAssistantChars += result.text.length;
     }).catch(function (error) {
       if (error && error.name === 'AbortError') return;
-      console.error(error);
-      if (mounted && token === requestToken) {
-        S.ui.toast('응답을 불러오지 못했습니다. 다시 시도해 주세요.');
+      if (!mounted || token !== requestToken) return;
+
+      // 실패한 발화는 기록에서 되돌리고 입력창에 복원합니다.
+      var last = chat.messages[chat.messages.length - 1];
+      if (last && last.role === 'user') chat.messages.pop();
+      behavior.userTurnCount = Math.max(0, behavior.userTurnCount - 1);
+      behavior.totalUserChars = Math.max(0, behavior.totalUserChars - text.length);
+      if (wasFirst) behavior.firstUserMessageAt = null;
+      behavior.minTurnsMet = behavior.userTurnCount >= behavior.minUserTurns;
+
+      if (els) {
+        els.input.value = text;
+        S.ui.toast(S.services.llm.errorMessage(error));
       }
     }).finally(function () {
       if (token !== requestToken) return;
@@ -223,6 +282,7 @@
 
     chat.ended = true;
     behavior.endedByUser = true;
+    behavior.endedReason = behavior.userTurnCount >= S.config.maxUserTurns ? 'max_turns' : 'user';
     behavior.endedAt = Date.now();
     behavior.minTurnsMet = true;
     chat.messages.push({
@@ -234,7 +294,17 @@
     setBusy(false);
     renderMessages();
     updateChatState();
-    S.services.storage.saveChatBehavior(buildSnapshot());
+
+    if (!S.config.testMode) {
+      S.services.storage.saveChatBehavior(buildSnapshot()).then(function (result) {
+        if (result && result.ok === false) {
+          S.ui.toast('대화 기록 저장에 실패했습니다. 연구진에게 알려 주세요.');
+        } else if (result && result.persisted === false) {
+          S.ui.toast('저장소가 설정되지 않아 대화 기록이 저장되지 않았습니다.');
+        }
+      });
+    }
+
     S.ui.toast('대화가 종료되었습니다.');
   }
 
@@ -247,13 +317,25 @@
 
       var character = S.config.character;
       var min = S.state.chat.behavior.minUserTurns;
+      var max = S.config.maxUserTurns;
+      var isMock = S.config.llm.provider === 'mock';
+      var statusText = isMock ? '대화 가능 · 테스트 응답' : '대화 가능';
+      var badgeText = isMock ? 'Mock' : 'AI';
+      var disclaimer;
+      if (isMock) {
+        disclaimer = '현재는 테스트용 모의 응답입니다. 실제 LLM과 대화하지 않습니다.';
+      } else if (S.config.testMode) {
+        disclaimer = '테스트 모드입니다. 대화 내용은 저장되지 않습니다.';
+      } else {
+        disclaimer = '대화 내용은 연구 목적으로만 사용되며, 개인을 식별할 수 있는 정보는 수집하지 않습니다. 응답은 AI가 생성합니다. 위기 상황에서는 109(자살예방), 119(응급)로 연락해 주세요.';
+      }
 
       root.innerHTML = '' +
         '<section class="page page--chat">' +
           '<header class="page-head">' +
             '<p class="eyebrow">' + S.ui.escape(S.pageMeta[4].kicker) + '</p>' +
             '<h1>' + S.ui.escape(S.pageMeta[4].title) + '</h1>' +
-            '<p class="lede">' + S.ui.escape(character.name) + '와 자유롭게 대화해 주세요. <strong>최소 ' + min + '회 이상 메시지를 보낸 뒤</strong> 대화를 종료할 수 있습니다. 조건을 충족한 뒤에도 대화를 계속할 수 있습니다.</p>' +
+            '<p class="lede">' + S.ui.escape(character.name) + '와 자유롭게 대화해 주세요. <strong>최소 ' + min + '회 이상 메시지를 보낸 뒤</strong> 대화를 종료할 수 있습니다. 최대 ' + max + '회까지 대화할 수 있습니다.</p>' +
           '</header>' +
 
           S.ui.notice('대화 종료는 최소 ' + min + '회 발화 후 가능합니다. 대화를 더 이어가고 싶다면 자유롭게 계속해 주세요.', 'info') +
@@ -263,9 +345,9 @@
               '<span class="avatar">' + S.ui.escape(character.avatar) + '</span>' +
               '<div class="chat-head-text">' +
                 '<strong>' + S.ui.escape(character.name) + '</strong>' +
-                '<span class="status"><i></i> 대화 가능 · 테스트 응답</span>' +
+                '<span class="status"><i></i> ' + S.ui.escape(statusText) + '</span>' +
               '</div>' +
-              '<span class="badge">Mock</span>' +
+              '<span class="badge">' + S.ui.escape(badgeText) + '</span>' +
             '</header>' +
 
             '<div class="chat-messages" id="chat-messages" role="log" aria-live="polite"></div>' +
@@ -274,11 +356,11 @@
               '<textarea id="chat-input" rows="2" aria-label="메시지 입력" placeholder="메시지를 입력하세요 (Enter 전송, Shift+Enter 줄바꿈)"></textarea>' +
               '<div class="composer-actions">' +
                 '<button type="submit" class="btn btn-primary" id="chat-send">전송</button>' +
-                '<button type="button" class="btn btn-ghost" id="end-chat" disabled>대화 종료 (0/' + min + ')</button>' +
+                '<button type="button" class="btn btn-ghost" id="end-chat" disabled>대화 종료 (최소 ' + min + '회)</button>' +
                 '<button type="button" class="btn btn-primary" id="chat-next" hidden>다음 단계로 →</button>' +
               '</div>' +
             '</form>' +
-            '<p class="chat-disclaimer">현재는 테스트용 모의 응답입니다. Claude API 연동 전까지 실제 LLM과 대화하지 않습니다.</p>' +
+            '<p class="chat-disclaimer">' + S.ui.escape(disclaimer) + '</p>' +
           '</section>' +
         '</section>';
 
@@ -293,6 +375,7 @@
 
       renderMessages();
       updateChatState();
+      setBusy(false);
 
       els.form.addEventListener('submit', function (event) {
         event.preventDefault();

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#ffffff">
+<meta name="robots" content="noindex, nofollow">
+<title>연구자 대시보드 · AI 챗봇 사용 경험 설문</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="admin-body">
+<div class="admin-shell">
+  <header class="admin-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">AD</span>
+      <div>
+        <p class="brand-title">연구자 대시보드</p>
+        <p class="brand-sub">AI 챗봇 사용 경험 설문</p>
+      </div>
+    </div>
+    <div class="admin-header-actions">
+      <a class="btn btn-ghost" href="index.html">설문 페이지</a>
+      <span class="admin-user" id="admin-user" hidden></span>
+      <button type="button" class="btn btn-ghost" id="logout-btn" hidden>로그아웃</button>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <!-- 로그인 -->
+    <section class="admin-login" id="login-view">
+      <div class="card admin-login-card">
+        <p class="eyebrow">Researcher access</p>
+        <h1>연구자 로그인</h1>
+        <p class="lede">설문 응답과 대화 내용은 연구자 계정으로만 열람할 수 있습니다. Supabase에 등록된 이메일과 비밀번호를 입력해 주세요.</p>
+
+        <form class="admin-form" id="login-form" autocomplete="on">
+          <label class="field">
+            <span class="field-label">이메일</span>
+            <input class="text-input" type="email" id="login-email" name="email" autocomplete="username" required>
+          </label>
+          <label class="field">
+            <span class="field-label">비밀번호</span>
+            <input class="text-input" type="password" id="login-password" name="password" autocomplete="current-password" required>
+          </label>
+          <button type="submit" class="btn btn-primary btn-block" id="login-btn">로그인</button>
+        </form>
+
+        <p class="admin-error" id="login-error" role="alert" hidden></p>
+        <p class="muted small admin-login-note">
+          계정은 Supabase Dashboard → Authentication → Users에서 만들 수 있습니다.
+          로그인 후 데이터가 보이지 않으면 <code>survey_admins</code> 테이블에 이메일이 등록되어 있는지 확인하세요.
+        </p>
+      </div>
+    </section>
+
+    <!-- 대시보드 -->
+    <section id="dashboard-view" hidden>
+      <div class="admin-title-row">
+        <div>
+          <p class="eyebrow">Overview</p>
+          <h1>응답 현황</h1>
+          <p class="muted small" id="last-refreshed">불러오는 중…</p>
+        </div>
+        <div class="admin-actions">
+          <button type="button" class="btn btn-ghost" id="refresh-btn">새로고침</button>
+          <button type="button" class="btn btn-ghost" id="export-btn">CSV 내려받기</button>
+        </div>
+      </div>
+
+      <p class="muted small admin-privacy-note">
+        대화 내용은 민감 정보를 포함할 수 있습니다. 참여 동의 범위 내에서만 열람하고 외부에 공유하지 마세요.
+      </p>
+
+      <div class="admin-stats" id="stats" aria-live="polite"></div>
+
+      <section class="card card--flush admin-panel">
+        <div class="admin-toolbar">
+          <label class="admin-search">
+            <span class="sr-only">참여자 검색</span>
+            <input class="text-input" type="search" id="search-input" placeholder="response_id 앞자리 검색">
+          </label>
+          <label class="admin-filter">
+            <span class="sr-only">상태 필터</span>
+            <select class="text-input" id="status-filter">
+              <option value="all">전체 상태</option>
+              <option value="completed">완료</option>
+              <option value="chat_ended">대화 종료 (미완료)</option>
+              <option value="in_progress">진행 중</option>
+            </select>
+          </label>
+          <label class="admin-filter">
+            <span class="sr-only">정렬</span>
+            <select class="text-input" id="sort-select">
+              <option value="recent">최근 활동순</option>
+              <option value="turns">발화 수 많은순</option>
+              <option value="duration">대화 시간 긴순</option>
+              <option value="started">시작 오래된순</option>
+            </select>
+          </label>
+          <span class="muted small admin-result-count" id="result-count"></span>
+        </div>
+
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th scope="col">상태</th>
+                <th scope="col">참여자</th>
+                <th scope="col">발화 수</th>
+                <th scope="col">대화 시간</th>
+                <th scope="col">최소 턴</th>
+                <th scope="col">종료 사유</th>
+                <th scope="col">시작</th>
+                <th scope="col">마지막 활동</th>
+                <th scope="col"><span class="sr-only">상세</span></th>
+              </tr>
+            </thead>
+            <tbody id="participant-rows"></tbody>
+          </table>
+        </div>
+
+        <div class="admin-empty" id="empty-state" hidden>
+          <p>조건에 맞는 참여자가 없습니다.</p>
+        </div>
+        <div class="admin-empty" id="loading-state" hidden>
+          <p>데이터를 불러오는 중입니다…</p>
+        </div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<!-- 상세 패널 -->
+<div class="admin-drawer-backdrop" id="detail-backdrop" hidden></div>
+<aside class="admin-drawer" id="detail-drawer" role="dialog" aria-modal="true" aria-labelledby="detail-title" hidden>
+  <header class="admin-drawer-head">
+    <div>
+      <p class="eyebrow">Participant detail</p>
+      <h2 id="detail-title">참여자 상세</h2>
+    </div>
+    <button type="button" class="btn btn-ghost admin-close" id="detail-close" aria-label="상세 닫기">닫기</button>
+  </header>
+  <div class="admin-drawer-body" id="detail-body"></div>
+</aside>
+
+<div class="toast" id="admin-toast" role="status" aria-live="polite"></div>
+
+<script src="js/config.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
